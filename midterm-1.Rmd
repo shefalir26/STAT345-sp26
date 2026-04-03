@@ -1,0 +1,338 @@
+---
+title: "STAT 345 Midterm Project"
+font: 12pt
+date: ""
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+> "Our offense is like the Pythagorean Theorem. There is no answer!", _Shaquille O'Neal_
+
+## The Background
+
+Your role for the midterm project is that of data analyst intern at an NBA (professional basketball) team. Your direct supervisor (also part of the analytics team) has asked you to create a data visualization to illustrate how (or if) the team's shots have changed over time. After some initial clarifying questions, your supervisor confessed that they had seen some pretty cool shot charts at http://savvastjortjoglou.com/nba-shot-sharts.html and would like to extend the ideas a bit. 
+
+Your data for the midterm project may come from a variety of sources, including the NBA directly, as well as Basketball-Reference, HoopsHype, and others. There are several ways to access the data, but perhaps the simplest is through a package. There are a few options (each with some benefits, drawbacks, and potential headaches):
+
+- `nbastatR`
+- `hoopR`
+- `AdvancedBasketballStats`
+
+Note: if you would prefer to analyze college basketball, packages exist for that too (such as `cbbdata`). If you would prefer to look into a different sport, we can investigate that as well. Please let me know in advance if you intend to go down one of these alternate routes. 
+
+## The Tasks
+
+1. (30 points) Produce a graphic displaying the shot locations for a particular team over several years. Some notes:
+
+   - Colors should be chosen to reflect the team, if possible.
+   - There are likely many overlaid points -- handle this by either binning these by location, or use opacity and size.
+   - Incorporate information about whether the shot was made or not (shape, color, etc.).
+   - The graphic should be well-labeled, titled, etc.
+   - Start with a graph for a single year, then extend to several years. Up to 20 years of shot data is available. Either facet these by year or animate using the years.
+   - You'll want to figure out what the coordinates mean somehow. This might be through the documentation, but could also be determined using aspects of the data itself and the dimensions of an NBA court.
+    - Put a basketball court on the background of the image (you'll need to scale it appropriately).
+    
+```{r}
+library(tidyverse)
+library(jpeg)
+library(ggpubr)
+library(hoopR)
+library(magick)
+
+shots_25 <- load_nba_pbp(seasons = 2025)
+bucs_shots_25 <- shots_25 %>%   filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw >-1000, coordinate_y_raw > -1000) %>%
+  mutate(
+    x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+    y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw)
+  )
+
+bucs_shots_mirrored <- bucs_shots_25 %>%
+  mutate(coordinate_y_raw=82-coordinate_y_raw)
+bucs_shots_both <- bind_rows(bucs_shots_25, bucs_shots_mirrored)
+
+court_background <- readJPEG("BucksCourt.jpg")
+
+ggplot(bucs_shots_both, aes(x = coordinate_x_raw, y = coordinate_y_raw)) +
+
+ annotation_raster(court_background,
+                    xmin = 0, xmax = 50,
+                    ymin = -5, ymax = 82) +
+  
+    geom_point(data = filter(bucs_shots_both, shooting_play == TRUE & scoring_play == FALSE),
+             color = "#cc3333", size = 1.2, alpha = 0.4) +
+  
+  geom_point(data = filter(bucs_shots_both, shooting_play == TRUE & scoring_play == TRUE),
+             color = "#00471B", size = 1.2, alpha = 0.4) +
+  
+
+  coord_fixed() +
+  
+  labs(
+    title = "Milwaukee Bucks Shot Locations",
+    subtitle = "2025 NBA Season",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal()
+
+```
+```{r}
+library(hoopR)
+library(tidyverse)
+library(jpeg)
+
+court_background <- readJPEG("BucksCourt.jpg")
+
+shots_21 <- load_nba_pbp(seasons = 2021) %>%
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  mutate(season = "2020-21",
+    x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+    y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw))
+
+shots_22 <- load_nba_pbp(seasons = 2022) %>%
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  mutate(season = "2021-22",
+x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw))
+
+shots_23 <- load_nba_pbp(seasons = 2023) %>%
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  mutate(season = "2022-23",
+             x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+    y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw))
+
+shots_24 <- load_nba_pbp(seasons = 2024) %>%
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  mutate(season = "2023-24",
+             x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+    y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw))
+
+shots_25 <- load_nba_pbp(seasons = 2025) %>%
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  filter(!is.na(shooting_play)) %>%
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  mutate(season = "2024-25",
+             x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+    y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw))
+
+bucks_all <- bind_rows(shots_21, shots_22, shots_23, shots_24, shots_25)
+
+ggplot(bucks_all, aes(x = coordinate_x_raw, y = coordinate_y_raw)) +
+  annotation_raster(court_background, xmin = 0, xmax = 50, ymin = -5, ymax = 82) +
+  geom_point(data = filter(bucks_all, shooting_play == TRUE & scoring_play == FALSE),
+             color = "#EE1D23", size = 1.2, alpha = 0.5) +
+  geom_point(data = filter(bucks_all, shooting_play == TRUE & scoring_play == TRUE),
+             color = "#00471B", size = 1.2, alpha = 0.6) +
+  facet_wrap(~season) +
+  coord_fixed() +
+  labs(
+    title = "Milwaukee Bucks Shot Locations",
+    subtitle = "2020-21 to 2024-25 NBA Seasons",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal()
+```
+   
+2. (30 points) Summarize the graphic/series of graphics into a digestible, bullet-point brief report for front-office staff. Some notes:
+
+   - The main body of the report should be very brief -- just the graphic(s) and the bullet-pointed list of findings, which should be short and clear.
+   - Include a more detailed explanation of these bullet points, for further reading by those interested. This section should follow the bullet-point section, but should be organized similarly for reference. 
+   - Your report to the front-office shouldn't include any code.
+   - This report should be generated using RMarkdown. However, the choice of output type (Word, PDF, or HTML) is up to you (you could even make slides if you want to). 
+   
+```{r}
+ggsave("BucksShotChart.png", width=10, height=7)
+```
+   
+   ## Milwaukee Bucks Shot Chart Analysis (2020-21 to 2024-25)
+- Key findings:
+- The majority of shots are concentrated around the basket and the three-point corners throughout all the seasons, shown by the green dots.
+- There are more shots made in the paint and in the corners.
+- There seem to be more three-point attempts taken in later seasons
+- There are less mid-range shots taken and less made, as indicated by the red dots.
+- There are no huge differences from where players take their shots across the seasons, but there are more three-point misses in later seasons.
+
+Explanation:
+The distribution of shooting attempts shows that there are a lot more shots taken near the basket and along the corner three-point line. There are not that many mid range jump shots taken, and even less mid range jump shots made, across all seasons.The area where there is the most amount of shots made is in the painted areas of the court.Even though the plots are pretty similar throughout the years, there is an increase in three-point misses indicating either more three-point attempts, or defensive strategies to block three-pointers better.
+
+3. (30 points) Write and document clean, efficient, reproducible code. Some notes:
+
+   - This code will be viewed by your direct supervisor.
+   - The code file should include your code to gather, join, and clean the data; the code to generate the graphic(s) presented; and your commentary on the results (so, a single .rmd file, or an .rmd file that sources an .r file).
+   - Your code should be clean, organized, and reproducible. Remove unnecessary/scratch/exploratory code.
+   - Your code should be well commented. In particular, any decisions or judgement calls made in the analysis process should be explained/justified. Sections of code should be identified even if not functionalized (including purpose, data/argument inputs, analysis outputs).
+   
+```{r}
+# 1. Libraries
+
+library(tidyverse)
+library(hoopR)
+library(jpeg)
+
+
+# 2. Court Image
+
+court_background <- readJPEG("BucksCourt.jpg")
+
+# 3. Load and Clean Data
+
+seasons <- 2021:2025
+
+# Load shot attempts from one bucks season
+load_bucks_shots <- function(season_year) {
+  
+  load_nba_pbp(seasons = season_year) %>%
+    
+    filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  
+    filter(!is.na(shooting_play)) %>%
+    
+    filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+    
+    mutate(
+      season = case_when(
+        season_year == 2021 ~ "2020-21",
+        season_year == 2022 ~ "2021-22",
+        season_year == 2023 ~ "2022-23",
+        season_year == 2024 ~ "2023-24",
+        season_year == 2025 ~ "2024-25"
+      ),
+      x = if_else(coordinate_y_raw > 47, 50 - coordinate_x_raw, coordinate_x_raw),
+      y = if_else(coordinate_y_raw > 47, 94 - coordinate_y_raw, coordinate_y_raw)
+    )
+}
+
+# Apply to all sesons
+bucks_all <- map_dfr(seasons, load_bucks_shots)
+
+# 4. Shot Chart
+
+bucks_2025 <- filter(bucks_all, season == "2024-25")
+
+ggplot(bucks_2025, aes(x = x, y = y)) +
+  annotation_raster(court_background, xmin = 0, xmax = 50, ymin = -5, ymax = 82) +
+  geom_point(data = filter(bucks_2025, scoring_play == FALSE),
+             color = "#EE1D23", size = 1.2, alpha = 0.4) +
+  geom_point(data = filter(bucks_2025, scoring_play == TRUE),
+             color = "#00471B", size = 1.2, alpha = 0.5) +
+  coord_fixed() +
+  labs(
+    title = "Milwaukee Bucks Shot Locations",
+    subtitle = "2024-25 NBA Season",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal()
+
+ggplot(bucks_all, aes(x = x, y = y)) +
+  
+  # Court Background
+  annotation_raster(
+    court_background,
+    xmin = 0, xmax = 50,
+    ymin = -5, ymax = 82
+  ) +
+  
+  # Missed Shots
+  geom_point(
+    data = filter(bucks_all, scoring_play == FALSE),
+    color = "#EE1D23",
+    size = 1.2,
+    alpha = 0.4
+  ) +
+  
+  # Made Shots
+  geom_point(
+    data = filter(bucks_all, scoring_play == TRUE),
+    color = "#00471B",
+    size = 1.2,
+    alpha = 0.5
+  ) +
+  
+  # Make it by Season
+  facet_wrap(~season) +
+  
+  coord_fixed() +
+  
+  labs(
+    title = "Milwaukee Bucks Shot Locations",
+    subtitle = "2020-21 to 2024-25 NBA Seasons",
+    x = NULL,
+    y = NULL
+  ) +
+  
+  theme_minimal()
+
+# 5. Save Output
+
+ggsave("BucksShotChart.png", width = 10, height = 7)
+
+```
+   
+   
+4. (10 points) Above and Beyond. Choose either option below. You are welcome to explore both, but only one is required. 
+
+  - Option 1: Explore the data a bit, and create a graphic that uses (or incorporates) different information than what was used above. Some notes:
+    - Create an additional graphic that incorporates at least one additional variable not previously used (this should add to the graphic in part 1). The additional data should be drawn from a different dataset (function call) than the original graphic used. These two (or more) datasets may need to be joined appropriately.
+    - You can either add more information to the plot above, or create a different plot. 
+     - Formatting, labelling, etc. are all important here too.
+    - Adding marginal densities or other "bells and whistles" might offer additional insight.
+    - This graphic should be included at the end of the report (after the more detailed explanations). 
+     - You should include a brief description of the graphic (highlighting the different/additional information used).
+
+```{r}
+# Giannis vs. Rest of Team
+
+player_name <- load_nba_player_box(seasons = 2021:2025) %>%
+  select(game_id, athlete_id, athlete_display_name) %>%
+  distinct()
+
+giannis_shots <- bucks_all %>%
+  left_join(player_name, by = c("game_id" = "game_id", "athlete_id_1" = "athlete_id")) %>%
+  mutate(
+    shooter = if_else(
+      str_detect(athlete_display_name, "Antetokounmpo"),
+      "Giannis",
+      "Rest of Team"
+    )
+  )
+
+ggplot(giannis_shots, aes(x = coordinate_x_raw, y = coordinate_y_raw)) +
+  annotation_raster(court_background, xmin = 0, xmax = 50, ymin = -5, ymax = 82) +
+  geom_point(data = filter(giannis_shots, shooting_play == TRUE & scoring_play == FALSE & shooter == "Rest of Team"),
+             color = "#EE1D23", size = 1.2, alpha = 0.4) +
+  geom_point(data = filter(giannis_shots, shooting_play == TRUE & scoring_play == TRUE & shooter == "Rest of Team"),
+             color = "#00471B", size = 1.2, alpha = 0.5) +
+  geom_point(data = filter(giannis_shots, shooting_play == TRUE & scoring_play == FALSE & shooter == "Giannis"),
+             color = "#89CFF0", size = 1.2, alpha = 0.4) +
+  geom_point(data = filter(giannis_shots, shooting_play == TRUE & scoring_play == TRUE & shooter == "Giannis"),
+             color = "#2B4593", size = 1.2, alpha = 0.5) +
+  facet_wrap(~season) +
+  coord_fixed() +
+  labs(
+    title = "Shot Locations: Giannis vs. Rest of Team",
+    subtitle = "2020-21 to 2024-25 NBA Seasons",
+    caption = "Red/Green = Rest of Team | Light Blue/Dark Blue = Giannis",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal()
+
+ggsave("GiannisShotChart.png", width = 10, height = 7)
+```
+To figure out who was shooting the ball, I took the play by play data and player box score data, and joined them together to figure out who is shooting the ball on each play. I made Giannis's shots light and dark blue, while his teammates shots are green and red. Giannis' shots are mostly around the paint across all five seasons, while his teammates shots are more across the three-point line.
+  
+## The Deliverables
+
+1. Upload your report and code file(s) to GitHub by 5:00pm on Friday, April 3.
+2. Submit (on Canvas) your report, code, and link to your GitHub repository by 5:00pm on Friday, April 3.
