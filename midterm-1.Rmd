@@ -34,7 +34,7 @@ Note: if you would prefer to analyze college basketball, packages exist for that
    - You'll want to figure out what the coordinates mean somehow. This might be through the documentation, but could also be determined using aspects of the data itself and the dimensions of an NBA court.
     - Put a basketball court on the background of the image (you'll need to scale it appropriately).
     
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(jpeg)
 library(ggpubr)
@@ -80,7 +80,7 @@ ggplot(bucs_shots_both, aes(x = coordinate_x_raw, y = coordinate_y_raw)) +
   theme_minimal()
 
 ```
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(hoopR)
 library(tidyverse)
 library(jpeg)
@@ -152,7 +152,7 @@ ggplot(bucks_all, aes(x = coordinate_x_raw, y = coordinate_y_raw)) +
    - Your report to the front-office shouldn't include any code.
    - This report should be generated using RMarkdown. However, the choice of output type (Word, PDF, or HTML) is up to you (you could even make slides if you want to). 
    
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 ggsave("BucksShotChart.png", width=10, height=7)
 ```
    
@@ -174,7 +174,7 @@ The distribution of shooting attempts shows that there are a lot more shots take
    - Your code should be clean, organized, and reproducible. Remove unnecessary/scratch/exploratory code.
    - Your code should be well commented. In particular, any decisions or judgement calls made in the analysis process should be explained/justified. Sections of code should be identified even if not functionalized (including purpose, data/argument inputs, analysis outputs).
    
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # 1. Libraries
 
 library(tidyverse)
@@ -291,7 +291,7 @@ ggsave("BucksShotChart.png", width = 10, height = 7)
     - This graphic should be included at the end of the report (after the more detailed explanations). 
      - You should include a brief description of the graphic (highlighting the different/additional information used).
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # Giannis vs. Rest of Team
 
 player_name <- load_nba_player_box(seasons = 2021:2025) %>%
