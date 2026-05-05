@@ -1,0 +1,323 @@
+---
+title: "Milwaukee Bucks Shot Chart Analysis"
+subtitle: 2020–21 to 2024–25 NBA Seasons
+output:
+  pdf_document: default
+  html_document:
+    theme: flatly
+    highlight: tango
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+
+# Code structure and shot chart design adapted from:
+# Savvas Tjortjoglou NBA shot chart tutorial
+# https://savvastjortjoglou.com/nba-shot-charts.html
+
+# Hide code, warnings, and messages in final report. 
+# Center the figures by default
+
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center"
+)
+```
+
+```{r libraries}
+
+# Load packages used for gathering data and visualization (tidyverse)
+# NBA play-by-play data (hoopR), and the court background image (jpeg)
+
+# The shot chart design uses common NBA shot-chart conventions, using official court dimensions, and the Bucks team colors
+
+library(tidyverse)
+library(hoopR)
+library(jpeg)
+```
+
+## Introduction
+
+This report looks at the Milwaukee Bucks shot selection and their shooting efficiency from the 2020-2021 through 2024-2025 NBA seasons using ESPN play-by-play data accessed through the hoopR package. The goal of this report is to visualize where the Bucks take their shots, how efficiently they are scoring from different areas of the court, and how these patterns have changed over time.
+
+This analysis is divided into three parts: 
+1. A detailed look into the 2024-2025 season. 2. A comparison through five seasons of shot distribution and efficiency. 
+3. A comparison of Giannis Antetokounmpo’s shots with the rest of the Bucks team.
+
+All graphs use hexagonal binning instead of individual shot points to make sure the scoring patterns are easier to interpret.
+
+```{r load-data, cache=TRUE}
+# Load the play-by-play data for 2020-2021 through 2024-2025 seasons
+# 2021-2025 are used because hoopR sorts seasons by their season ending year.
+
+bucks_all <- load_nba_pbp(seasons = 2021:2025) %>%
+  # Keep Milwaukee games only
+  filter(home_team_name == "Milwaukee" | away_team_name == "Milwaukee") %>%
+  
+  # Keep only field goal attempts
+  filter(shooting_play == TRUE) %>%
+  
+  # Remove missing coordinate values
+  filter(coordinate_x_raw > -1000, coordinate_y_raw > -1000) %>%
+  
+  mutate(
+    # Flip x-axis so the court orientation matches image
+    x = 50 - coordinate_x_raw,
+    # Reflect far-side shots onto one half-court
+    y = if_else(coordinate_y_raw > 47,
+                94 - coordinate_y_raw,
+                coordinate_y_raw),
+    # Convert seasons into labels
+    season = case_when(
+      season == 2021 ~ "2020\u201321",
+      season == 2022 ~ "2021\u201322",
+      season == 2023 ~ "2022\u201323",
+      season == 2024 ~ "2023\u201324",
+      season == 2025 ~ "2024\u201325"
+    )
+  ) %>%
+  # Take out free throws, because they aren't super helpful for shot charts
+  filter(!str_detect(type_text, "Free Throw")) %>%
+  # Keep only offensive half-court shots
+  filter(x >= 0, x <= 50, y >= 0, y <= 35)
+```
+
+```{r court-image}
+# Load half-court background image
+# Used as the base layer for shot chart visualizations
+
+court_background <- readJPEG("BucksCourtReal.jpg")
+```
+
+## 2024-25 Season: Shot Efficiency by Zone
+
+The hexagonal heatmap below summarizes all Milwaukee Bucks field-goal attempts from the 2024-2025 regular season. Each hexagon is colored by field-goal percentage (FG%), where green represents above-average efficiency, yellow represents league-average shooting (around 47%), and red indicates below average efficiency. Hexagons with less than five attempts are left out to reduce clutter and keep the percentages reliable
+
+```{r single-season-chart, fig.width=10, fig.height=9, out.width="100%", fig.cap="Milwaukee Bucks shot efficiency by court zone, 2024–25 season. Green hexagons represent high FG%; red indicates low FG%. Zones with fewer than 5 attempts are removed to ensure accurate percentages"}
+# 2024-2025 season shot chart using hexagonal binning
+# This replaces individual shot points to reduce overplotting and highlight where the spatial shooting efficiency across the court.
+
+bucks_2025 <- filter(bucks_all, season == "2024\u201325")
+
+ggplot(bucks_2025, aes(x = x, y = y)) +
+  # Court background image
+  annotation_raster(court_background,
+                    xmin = 0, xmax = 50,
+                    ymin = 0, ymax = 35) +
+  # Hexagonal bins summarized the field-goal percentage by location
+  stat_summary_hex(
+    aes(z = as.numeric(scoring_play)), # 1 = made, 0 = missed
+    fun       = function(z) ifelse(length(z) < 5, NA, mean(z)),
+    bins      = 10,
+    alpha     = 0.80,
+    color     = "grey30",
+    linewidth = 0.15
+  ) +
+  # Color scale: red (low efficiency), yellow (average), green (high)
+  scale_fill_gradient2(
+    low      = "#EE1D23",
+    mid      = "#F5E642",
+    high     = "#00471B",
+    midpoint = 0.47, # The midpoint is set at a league-average FG% (0.47)
+    na.value = NA,
+    name     = "FG%",
+    labels   = scales::percent_format(accuracy = 1)
+  ) +
+  # Maintain the right court proportions
+  coord_fixed(xlim = c(0, 50), ylim = c(0, 35), clip = "on") +
+  labs(
+    title    = "Milwaukee Bucks Shot Efficiency \u2014 2024\u201325",
+    subtitle = "Hex color represents FG% by location | Minimum 5 attempts per zone",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Data: ESPN via hoopR"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text         = element_blank(),
+    axis.ticks        = element_blank(),
+    panel.grid        = element_blank(),
+    legend.position   = "right",
+    legend.key.height = unit(1.2, "cm"),
+    plot.title        = element_text(face = "bold", size = 18),
+    plot.subtitle     = element_text(size = 12, color = "gray40")
+  )
+```
+
+## Five-Season Overview: 2020-21 to 2024-25
+
+The faceted chart below uses the same hexagonal binning approach across all five seasons, allowing for comparison of the Bucks shot distribution and efficiency over time.
+
+```{r multi-season-chart, fig.width=16, fig.height=12, out.width="100%", fig.cap="Milwaukee Bucks shot efficiency across five seasons (2020–21 to 2024–25). Each hexagon is colored by FG%: green = high efficiency, red = low efficiency. Zones with fewer than 5 attempts per season are hidden."}
+# Multi-season shot chart using hexagonal binning
+# Facets separate each season for comparison over time
+
+ggplot(bucks_all, aes(x = x, y = y)) +
+  # Court background for all seasons
+  annotation_raster(court_background,
+                    xmin = 0, xmax = 50,
+                    ymin = 0, ymax = 35) +
+  # Hexagonal bins showing field-goal percentage by location
+  stat_summary_hex(
+    aes(z = as.numeric(scoring_play)), # 1 = made, 0 = missed
+    fun       = function(z) ifelse(length(z) < 5, NA, mean(z)),
+    bins      = 10,
+    alpha     = 0.75,
+    color     = "white",
+    linewidth = 0.3
+  ) +
+  # Consistent FG% color scale across all seasons
+  scale_fill_gradient2(
+    low      = "#EE1D23",
+    mid      = "#F5E642",
+    high     = "#00471B",
+    midpoint = 0.47, # The midpoint is set at a league-average FG% (0.47)
+    na.value = NA,
+    name     = "FG%",
+    labels   = scales::percent_format(accuracy = 1)
+  ) +
+  # Separate panel for each season
+  facet_wrap(~season, ncol = 3) +
+  # Keep court proportions
+  coord_fixed(xlim = c(0, 50), ylim = c(0, 35), clip = "on") +
+  labs(
+    title    = "Milwaukee Bucks Shot Efficiency \u2014 2020\u201321 to 2024\u201325",
+    subtitle = "Hex color represents FG% by location | Minimum 5 attempts per zone",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Data: ESPN via hoopR"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text         = element_blank(),
+    axis.ticks        = element_blank(),
+    panel.grid        = element_blank(),
+    strip.text        = element_text(face = "bold", size = 14),
+    panel.spacing     = unit(1, "lines"),
+    legend.position   = "right",
+    legend.key.height = unit(1.5, "cm"),
+    plot.title        = element_text(face = "bold", size = 20),
+    plot.subtitle     = element_text(size = 13, color = "gray40")
+  )
+```
+
+## Key Findings
+
+1.  Rim efficiency is the strongest scoring area across all five seasons. The highest-density hexagons are near the basket, with field-goal percentages around 60% in most seasons. This shows the Bucks' focus on getting high-value shots at the rim, supported by drives from Giannis Antetokounmpo and paint-focused offensive actions.
+
+2.  The corner three-point shooting is a consistent strength over the years. Both corner areas show green to yellow hexagons across the seasons, which shows above-average efficiency. Because corner threes are the shortest three-point attempt, they are a constant part of the Bucks' spacing and shot selection strategy.
+
+3.  Mid-range attempts have gradually decreased. The area between the paint and the three-point line shows fewer hexagons and fewer hexagons over time, which suggests a shift away from mid-range shots, in favor of more efficient attempts at the rim or past the arc.
+
+4.  Shots above the three-point line have increased over time, suggesting a shift towards higher volume spacing rather than mid-range shots in later seasons. The top of the arc regions have become more populated in recent seasons, which shows that there have been more three-point shots taken. But, shot efficiency in these areas are more variable than corner threes.
+
+5.  Shots from the perimeter show some season to season variation. The change in color along the three-point line may show that there are differences in roster composition, shot quality, or just defensive pressure. These patterns show that there is a lot more variability in how many shots along the perimeter are converted, rather than a consistent trend.
+
+## Discussion
+
+The five-season view shows a strategic arc in Milwaukee's offensive philosophy. The Bucks' identity is built on a "rim-and-three model", where they get high percentage shots at the basket, driven by Giannis's penetration and surround him with three-point shooters to make problems for defenders. The disappearance of mid-range attempts throughout the years aligns with a league-wide consensus that mid-range jumpers are the least efficient shots in basketball. This is because mid-range shots are only worth two points while, three pointers are worth more, and their conversion rates are the same. A team that replaces mid-range attempts with corner threes or rim finishes, is making an expected value upgrade. Milwaukee has been disciplined in eliminating the middle ground.  
+
+Corner-three accuracy tells a slightly more complicated story. The number of shots taken from the corners has remained the same, the efficiency of the shots has fluctuated from season to season. This suggests that the corner-three conversion really depends on roster composition, whether there are reliable shooters or not, like Khris Middleton, Pat Connaughton, and Bobby Portis, rather than scheme alone. When corner shots are less efficient, defenses can shift more attention towards Giannis's driving lanes, and the overall offensive rating tends to dip as well.
+
+More shots on the three-point line in the space between the corners (above the break shots), have been taken in recent seasons, which shows that there is better ball movement and a greater willingness to shoot from farther away. But, the above-the-break threes are harder to convert than corner threes across the league, so more shots doesn't automatically mean more efficiency. If perimeter shooting is inefficient, the opposition can crowd into the paint and create a wall to limit Giannis's direct paths to the basket, which negatively impacts the team.
+
+## Giannis Antetokounmpo vs. Teammates
+
+The final chart isolates Giannis's shot profile from the rest of the roster. Giannis is identified by checking the play-by-play text for his name, and all the remaining Bucks shots are grouped as "Teammates." The two panels are shown together across all five seasons to give each hexagon enough attempts for an accurate FG% estimate. 
+
+```{r giannis-data, cache=TRUE}
+# Create a new variable to separate Giannis from the rest of the team
+# The play-by-play includes player names, so we need to check if Antetokounmpo shows up in the text column.
+# If it does, I will label it Giannis, otherwise it's "Teammates". 
+
+# I use str_detect() with ignore_case = TRUE so it still works even if the name is formatted slightly differently.
+
+# I am also using all five seasons together so there are enough data points in each area to get reliable FG% values. 
+
+giannis_shots <- bucks_all %>%
+  mutate(
+    shooter = if_else(
+      str_detect(text, regex("Antetokounmpo", ignore_case = TRUE)),
+      "Giannis Antetokounmpo",
+      "Teammates"
+    )
+  )
+```
+
+```{r giannis-chart, fig.width=16, fig.height=9, out.width="100%", fig.cap="Giannis Antetokounmpo vs. Teammates — collected shot efficiency across all five seasons (2020–21 to 2024–25)."}
+# This chart compares Giannis to the rest of the team side-by-side
+
+# facet_wrap() splits it into two panels:
+# - Giannis on one side
+# - Teammates on the other
+
+# This makes it easy to see how different Giannis's shot locations are than his teammates, as Giannis mostly shoots at the rim, while his teammates shoot around the perimeter. 
+
+# I kept the same hexbin approach as before to show FG%.
+
+# bins= 10 gives a good balance between detail and having enough shots in each hexagon
+
+# The color scale is the same as the other shots to keep everything consistent. I set the midpoint as 0.47 since that is around the league-average FG%.
+
+
+ggplot(giannis_shots, aes(x = x, y = y)) +
+  # Add court image as background
+  annotation_raster(court_background,
+                    xmin = 0, xmax = 50,
+                    ymin = 0, ymax = 35) +
+  # Hex bins showing FG%
+  stat_summary_hex(
+    aes(z = as.numeric(scoring_play)), # 1 = made, 0 = missed
+    fun       = function(z) ifelse(length(z) < 5, NA, mean(z)),
+    bins      = 10,
+    alpha     = 0.80,
+    color     = "grey30",
+    linewidth = 0.15
+  ) +
+  scale_fill_gradient2(
+    low      = "#EE1D23",
+    mid      = "#F5E642",
+    high     = "#00471B",
+    midpoint = 0.47,
+    na.value = NA,
+    name     = "FG%",
+    labels   = scales::percent_format(accuracy = 1)
+  ) +
+  facet_wrap(~shooter, ncol = 2) +
+  coord_fixed(xlim = c(0, 50), ylim = c(0, 35), clip = "on") +
+  labs(
+    title    = "Giannis Antetokounmpo vs. Teammates \u2014 Shot Efficiency",
+    subtitle = "All five seasons combined | Hex color = FG% | Min. 5 attempts per zone",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Data: ESPN via hoopR | Court: Bucks home court"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text         = element_blank(),
+    axis.ticks        = element_blank(),
+    panel.grid        = element_blank(),
+    strip.text        = element_text(face = "bold", size = 15),
+    panel.spacing     = unit(1.5, "lines"),
+    legend.position   = "right",
+    legend.key.height = unit(1.5, "cm"),
+    plot.title        = element_text(face = "bold", size = 18),
+    plot.subtitle     = element_text(size = 12, color = "gray40")
+  )
+```
+
+Giannis's panel is mostly made up of large, dark green hexagons right around the rim, which shows how often he likes to drive to the basket, and how efficient he is finishing there, as he is consistently above league average (~60-70% at the rim). His three-point attempts show up a lot less, and when they do they are usually yellow or red, which reflects his lower shooting percentage from three, around 28%. 
+
+On the other hand, his teammates show a much more spread-out shot pattern. There are a lot more shots along the three-point line, especially in the corners, which is really important for spacing and creating room for Giannis to drive. 
+
+This difference shows how the Bucks build their offense. Giannis puts pressure on the defense by driving to the basket, and when the defenders come to surround him, it creates openings for his teammates on the perimeter. The green corner hexagons in the teammates' shot charts show that this strategy is pretty effective. 
+
+## Sources
+
+-   **Data:** ESPN play-by-play data accessed from the [hoopR](https://hoopr.sportsdataverse.org/) R package (Gilani, 2021).
+-   **Court image:** Bucks home-court photograph, cropped to half-court dimensions (50 x 47 ft).
+-   **Shot chart design** inspired by Savvas Tjortjoglou's NBA shot chart tutorial: [savvastjortjoglou.com/nba-shot-charts.html](http://savvastjortjoglou.com/nba-shot-charts.html).
+-   **Court dimensions:** Official NBA dimensions --- 50 ft wide x 94 ft long; three-point line at 23 ft 9 in above the break, 22 ft in the corners; free-throw line at 15 ft from the backboard.
+-   **Team colors:** Milwaukee Bucks brand guide (Green #00471B, Cream #EEE1C6, Blue #0077C0).
